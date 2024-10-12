@@ -1,3 +1,4 @@
+// cliente.c
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -12,6 +13,7 @@ int main() {
     struct sockaddr_in server_addr;
     char buffer[BUFFER_SIZE];
     char message[BUFFER_SIZE];
+    char nombre[50];
     int bytes_received;
 
     // Crear el socket del cliente
@@ -37,6 +39,12 @@ int main() {
     }
 
     printf("Conectado al servidor.\n");
+
+    // Enviar el nombre al servidor
+    recv(sock, buffer, BUFFER_SIZE, 0);  // Recibir la solicitud de nombre
+    printf("%s", buffer);
+    fgets(nombre, 50, stdin);
+    send(sock, nombre, strlen(nombre), 0);
 
     // Comunicación cliente-servidor
     while (1) {
