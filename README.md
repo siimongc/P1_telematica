@@ -1,70 +1,113 @@
-# Proyecto Chat Cliente-Servidor en C
+# Proyecto de Chat Cliente-Servidor en C
 
-Este proyecto implementa una aplicación de **chat cliente-servidor** en lenguaje C, utilizando **sockets** y **hilos** (threads). La arquitectura está basada en un servidor que maneja múltiples clientes de manera concurrente.
+Este proyecto implementa una aplicación de *chat cliente-servidor* en lenguaje C, utilizando *sockets* e *hilos*. Los clientes pueden conectarse a un servidor y tener conversaciones privadas entre pares, con la capacidad de cambiar entre diferentes usuarios.
 
-## Estructura del Proyecto
+## Características del Proyecto
 
-- **Servidor**: El servidor es capaz de aceptar conexiones de múltiples clientes de forma simultánea y manejar la comunicación con cada uno de ellos en hilos separados.
-- **Cliente**: El cliente se conecta al servidor, envía mensajes y recibe respuestas del servidor en un modelo de **echo**, es decir, el servidor envía de vuelta el mensaje recibido.
-
-## Características
-
-- **Modelo Cliente-Servidor**: El servidor gestiona las conexiones de varios clientes a través de hilos.
-- **Concurrencia**: El servidor usa hilos (`pthread`) para manejar múltiples clientes conectados simultáneamente.
-- **Comunicación bidireccional**: El cliente puede enviar mensajes al servidor, y el servidor responde con el mismo mensaje.
-- **Uso de Sockets**: La comunicación entre cliente y servidor se realiza mediante la API de sockets de Berkeley (TCP/IP).
+- *Comunicación privada entre pares*: Cada cliente puede seleccionar con quién desea hablar de la lista de usuarios conectados.
+- *Lista dinámica de usuarios*: Los clientes pueden ver los usuarios conectados en tiempo real.
+- *Cambio de chat*: Los clientes pueden salir de una conversación y regresar a la lista de usuarios para seleccionar otro destinatario.
 
 ## Requisitos
 
-- **Compilador GCC**: Asegúrate de tener instalado GCC.
-- **Sistema operativo**: Funciona en sistemas tipo UNIX como Linux o macOS.
+- *Compilador GCC*: Se necesita GCC para compilar el código.
+- *Biblioteca pthread*: La comunicación entre clientes se maneja con hilos (pthread), por lo que es necesario contar con la biblioteca pthread.
 
 ## Estructura de Archivos
 
-- `servidor.c`: Código fuente del servidor.
-- `cliente.c`: Código fuente del cliente.
-- `Makefile`: Archivo para compilar y ejecutar el proyecto.
-- `README.md`: Este archivo con la explicación del proyecto.
+- servidor.c: Código fuente del servidor.
+- cliente.c: Código fuente del cliente.
+- Makefile: Archivo para compilar y ejecutar el proyecto.
+- README.md: manual de usuario.
 
 ## Cómo Compilar y Ejecutar
 
-El proyecto incluye un **Makefile** para facilitar la compilación y ejecución del código. A continuación, se detallan los pasos.
+El proyecto incluye un *Makefile* para facilitar la compilación y ejecución del código.
 
 ### 1. Compilar el proyecto
 
-Para compilar tanto el servidor como el cliente, simplemente ejecuta:
+Para compilar tanto el servidor como el cliente, simplemente ejecuta el siguiente comando en la terminal:
 
-```bash
+bash
 make
 
-Esto ejecutará las reglas del Makefile y compilará ambos archivos, generando los binarios servidor y cliente.
 
-Esto ejecutará las reglas del Makefile y compilará ambos archivos, generando los binarios servidor y cliente.
+Esto ejecutará las reglas del Makefile y compilará los archivos, generando los binarios servidor y cliente.
 
-2. Ejecutar el servidor
+### 2. Ejecutar el servidor
 Para iniciar el servidor, utiliza el siguiente comando:
 
 bash
-Copiar código
 make run-server
-El servidor estará ahora a la espera de conexiones en el puerto 8080. Imprimirá un mensaje indicando que está escuchando en ese puerto:
+
+
+El servidor estará ahora a la espera de conexiones en el puerto 8080. Verás un mensaje en la terminal indicando que el servidor está escuchando:
 
 bash
-Copiar código
 Servidor escuchando en el puerto 8080...
-3. Ejecutar el cliente
-Para iniciar el cliente, utiliza el siguiente comando:
+
+### 3. Ejecutar el cliente
+Para iniciar un cliente, abre otra terminal y utiliza el siguiente comando:
 
 bash
-Copiar código
 make run-client
-El cliente intentará conectarse al servidor en localhost (IP 127.0.0.1) en el puerto 8080. Puedes ejecutar varios clientes simultáneamente para simular múltiples usuarios conectados al servidor.
 
-4. Limpiar el proyecto
+El cliente se conectará al servidor en localhost (127.0.0.1) en el puerto 8080. Al iniciar, el cliente te pedirá que ingreses tu nombre de usuario.
+
+Puedes iniciar múltiples clientes para simular varias conexiones, cada cliente en una terminal diferente.
+
+### 4. Interacción entre clientes
+Una vez que estés conectado, el cliente recibirá la lista de usuarios disponibles y se te pedirá que elijas con quién deseas chatear. Solo verás los mensajes que tú y la persona seleccionada intercambien.
+
+Ejemplo de flujo del cliente:
+
+bash
+Introduce tu nombre de usuario: simon
+Ver lista de usuarios conectados:
+
+Usuarios conectados:
+maria
+juan
+
+Escribe el nombre de la persona con la que quieres hablar (o presiona 'x' para salir):
+
+
+Enviar mensajes: Los mensajes aparecerán con el formato "{Usuario}: mensaje" en ambas consolas (tanto para el remitente como para el destinatario).
+
+Cambiar de conversación: Puedes presionar x en cualquier momento para salir del chat actual y regresar a la lista de usuarios.
+
+Salir: Si el cliente cierra la conexión abruptamente (por ejemplo, usando Ctrl + C), el servidor detectará la desconexión e informará al servidor que se ha desconectado.
+
+### 1. Limpiar el proyecto
 Si deseas eliminar los archivos binarios generados (servidor y cliente), puedes ejecutar:
 
 bash
-Copiar código
 make clean
-Este comando eliminará los archivos servidor y cliente, limpiando el directorio de compilaciones anteriores.
 
+
+### Ejemplo de Uso
+Cliente 1 (simon):
+
+bash
+Introduce tu nombre de usuario: simon
+Usuarios conectados:
+maria
+juan
+
+Escribe el nombre de la persona con la que quieres hablar (o presiona 'x' para salir): majo
+
+{majo}: Hola Simon, ¿cómo estás?
+{Simon}: ¡Todo bien! ¿Y tú?
+
+
+Cliente 2 (maria):
+bash
+Introduce tu nombre de usuario: maria
+Usuarios conectados:
+simon
+juan
+
+Escribe el nombre de la persona con la que quieres hablar (o presiona 'x' para salir): simon
+
+{Simon}: ¡Todo bien! ¿Y tú?
+{majo}: Hola Simon, ¿cómo estás?
