@@ -10,105 +10,141 @@
 #define MAX_CLIENTS 100
 #define BUFFER_SIZE 1024
 
-// Estructura para manejar clientes
 typedef struct {
     int socket;
-    char nombre[50];
-} Cliente;
+    char username[50];
+    char target_username[50];
+} Client;
 
-Cliente clientes[MAX_CLIENTS];  // Almacena los clientes conectados
-int num_clientes = 0;           // Cantidad actual de clientes
+Client clients[MAX_CLIENTS];
+int client_count = 0;
+pthread_mutex_t clients_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-pthread_mutex_t clientes_mutex = PTHREAD_MUTEX_INITIALIZER;  // Mutex para proteger el acceso a la lista de clientes
+// Enviar lista de usuarios conectados a un cliente
+void send_user_list(int client_socket) {
+    char message[BUFFER_SIZE] = "Usuarios conectados:\n";
 
-// Función para verificar si un nombre ya está en uso
-int nombre_en_uso(const char *nombre) {
-    for (int i = 0; i < num_clientes; i++) {
-        if (strcmp(clientes[i].nombre, nombre) == 0) {
-            return 1;  // El nombre ya está en uso
-        }
+    pthread_mutex_lock(&clients_mutex);
+    for (int i = 0; i < client_count; ++i) {
+        strcat(message, clients[i].username);
+        strcat(message, "\n");
     }
-    return 0;  // El nombre no está en uso
+    pthread_mutex_unlock(&clients_mutex);
+
+    send(client_socket, message, strlen(message), 0);
 }
 
-// Función para manejar la comunicación con cada cliente
-void *handle_client(void *client_socket) {
-    int sock = *((int *)client_socket);
-    free(client_socket);  // Liberar la memoria asignada
-    char buffer[BUFFER_SIZE];
-    char nombre[50];
-    int bytes_received;
-
-    // Pedir nombre al cliente
-    send(sock, "Ingrese su nombre: ", strlen("Ingrese su nombre: "), 0);
-    bytes_received = recv(sock, nombre, 50, 0);
-    nombre[bytes_received - 1] = '\0';  // Eliminar el salto de línea final
-
-    // Verificar si el nombre ya está en uso
-    pthread_mutex_lock(&clientes_mutex);
-    if (nombre_en_uso(nombre)) {
-        send(sock, "Nombre ya en uso. Conexión rechazada.\n", strlen("Nombre ya en uso. Conexión rechazada.\n"), 0);
-        close(sock);
-        pthread_mutex_unlock(&clientes_mutex);
-        pthread_exit(NULL);
+// Validar si un usuario existe
+int user_exists(const char *username) {
+    pthread_mutex_lock(&clients_mutex);
+    for (int i = 0; i < client_count; ++i) {
+        if (strcmp(clients[i].username, username) == 0) {
+            pthread_mutex_unlock(&clients_mutex);
+            return 1;  // Usuario existe
+        }
     }
+    pthread_mutex_unlock(&clients_mutex);
+    return 0;  // Usuario no existe
+}
 
-    // Añadir al cliente a la lista
-    strcpy(clientes[num_clientes].nombre, nombre);
-    clientes[num_clientes].socket = sock;
-    num_clientes++;
-    pthread_mutex_unlock(&clientes_mutex);
-
-    sprintf(buffer, "Bienvenido al chat, %s!\n", nombre);
-    send(sock, buffer, strlen(buffer), 0);
-
-    // Recibe y envía mensajes al cliente hasta que se desconecte
-    while ((bytes_received = recv(sock, buffer, BUFFER_SIZE, 0)) > 0) {
-        buffer[bytes_received] = '\0';  // Asegura que el mensaje esté correctamente terminado
-        printf("[%s]: %s\n", nombre, buffer);
-        send(sock, buffer, bytes_received, 0);  // Envía el mensaje de vuelta al cliente (echo)
-    }
-
-    // Eliminar al cliente de la lista al desconectarse
-    pthread_mutex_lock(&clientes_mutex);
-    for (int i = 0; i < num_clientes; i++) {
-        if (clientes[i].socket == sock) {
-            // Mover el último cliente a la posición actual
-            clientes[i] = clientes[num_clientes - 1];
-            num_clientes--;
+// Función para enviar mensaje entre pares
+void send_message_to_client(char *message, char *target_username) {
+    pthread_mutex_lock(&clients_mutex);
+    for (int i = 0; i < client_count; ++i) {
+        if (strcmp(clients[i].username, target_username) == 0) {
+            send(clients[i].socket, message, strlen(message), 0);
             break;
         }
     }
-    pthread_mutex_unlock(&clientes_mutex);
+    pthread_mutex_unlock(&clients_mutex);
+}
 
-    close(sock);
-    printf("Cliente %s desconectado\n", nombre);
+// Manejar a cada cliente
+void *handle_client(void *arg) {
+    Client *client = (Client *)arg;
+    char buffer[BUFFER_SIZE];
+    int bytes_received;
+
+    while (1) {
+        // Enviar lista de usuarios conectados
+        send_user_list(client->socket);
+
+        // Pedir al cliente que elija con quién chatear
+        send(client->socket, "Escribe el nombre de la persona con la que quieres hablar (presiona 'x' para salir del chat en cualquier momento): ", 91, 0);
+        recv(client->socket, client->target_username, 50, 0);
+        client->target_username[strcspn(client->target_username, "\n")] = '\0';  // Eliminar salto de línea
+
+        // Comando para salir del chat
+        if (strcmp(client->target_username, "x") == 0) {
+            continue;  // Volver a la lista de usuarios
+        }
+
+        // Validar si el nombre existe
+        if (!user_exists(client->target_username)) {
+            send(client->socket, "Ese usuario no existe. Inténtalo de nuevo.\n", 42, 0);
+            continue;  // Volver a pedir el nombre
+        }
+
+        // Iniciar el chat
+        while (1) {
+            bytes_received = recv(client->socket, buffer, BUFFER_SIZE, 0);
+            if (bytes_received <= 0) break;  // El cliente se ha desconectado
+
+            buffer[bytes_received] = '\0';
+
+            // Comando para salir del chat actual
+            if (strcmp(buffer, "x\n") == 0) {
+                send(client->socket, "Has salido del chat.\n", 22, 0);
+                break;  // Salir del chat y volver a la lista
+            }
+
+            // Formatear el mensaje con {usuario}: mensaje
+            char formatted_message[BUFFER_SIZE];
+            snprintf(formatted_message, BUFFER_SIZE, "{%s}: %s", client->username, buffer);
+
+            // Enviar mensaje al destinatario
+            send_message_to_client(formatted_message, client->target_username);
+        }
+    }
+
+    // Desconectar al cliente
+    close(client->socket);
+    pthread_mutex_lock(&clients_mutex);
+    for (int i = 0; i < client_count; ++i) {
+        if (clients[i].socket == client->socket) {
+            for (int j = i; j < client_count - 1; ++j) {
+                clients[j] = clients[j + 1];
+            }
+            client_count--;
+            break;
+        }
+    }
+    pthread_mutex_unlock(&clients_mutex);
+
+    // Notificar a los clientes restantes que un usuario se ha desconectado
+    send_user_list(client->socket);
+
+    free(client);
     pthread_exit(NULL);
 }
 
 int main() {
-    int server_socket, client_socket, addr_len;
+    int server_socket, new_socket;
     struct sockaddr_in server_addr, client_addr;
-    pthread_t thread_id;
+    pthread_t tid;
+    socklen_t addr_size = sizeof(client_addr);
 
-    // Crear el socket del servidor
-    if ((server_socket = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
-        perror("Error al crear el socket");
-        exit(EXIT_FAILURE);
-    }
-
-    // Definir las propiedades del servidor
+    // Crear socket del servidor
+    server_socket = socket(AF_INET, SOCK_STREAM, 0);
     server_addr.sin_family = AF_INET;
     server_addr.sin_addr.s_addr = INADDR_ANY;
     server_addr.sin_port = htons(PORT);
 
-    // Vincular el socket a la dirección y puerto
     if (bind(server_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
         perror("Error en bind");
         exit(EXIT_FAILURE);
     }
 
-    // Poner el servidor en modo escucha para aceptar conexiones
     if (listen(server_socket, MAX_CLIENTS) < 0) {
         perror("Error en listen");
         exit(EXIT_FAILURE);
@@ -116,29 +152,23 @@ int main() {
 
     printf("Servidor escuchando en el puerto %d...\n", PORT);
 
-    // Bucle principal para aceptar conexiones
     while (1) {
-        addr_len = sizeof(client_addr);
-        // Aceptar la conexión de un cliente
-        if ((client_socket = accept(server_socket, (struct sockaddr *)&client_addr, (socklen_t *)&addr_len)) < 0) {
-            perror("Error en accept");
-            exit(EXIT_FAILURE);
-        }
+        new_socket = accept(server_socket, (struct sockaddr *)&client_addr, &addr_size);
 
-        printf("Nuevo cliente conectado\n");
+        Client *client = (Client *)malloc(sizeof(Client));
+        client->socket = new_socket;
+        recv(new_socket, client->username, 50, 0);
+        client->username[strcspn(client->username, "\n")] = '\0';  // Eliminar salto de línea
 
-        // Almacenar el socket del cliente dinámicamente
-        int *client_sock = malloc(sizeof(int));
-        *client_sock = client_socket;
+        pthread_mutex_lock(&clients_mutex);
+        clients[client_count++] = *client;
+        pthread_mutex_unlock(&clients_mutex);
 
-        // Crear un nuevo hilo para manejar al cliente
-        if (pthread_create(&thread_id, NULL, handle_client, (void *)client_sock) != 0) {
-            perror("Error al crear el hilo");
-        }
+        printf("Nuevo cliente conectado: %s\n", client->username);
+
+        pthread_create(&tid, NULL, handle_client, (void *)client);
     }
 
-    // Cerrar el socket del servidor
     close(server_socket);
     return 0;
 }
-
