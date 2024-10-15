@@ -6,7 +6,7 @@
 #include <pthread.h>
 #include <arpa/inet.h>
 
-#define PORT 8080
+#define PORT 8081
 #define BUFFER_SIZE 1024
 
 // Función para recibir mensajes en un hilo separado
@@ -41,7 +41,7 @@ int main() {
     server_addr.sin_port = htons(PORT);
 
     // Convertir la dirección IP en formato de red
-    if (inet_pton(AF_INET, "127.0.0.1", &server_addr.sin_addr) <= 0) {
+    if (inet_pton(AF_INET, "54.237.248.14", &server_addr.sin_addr) <= 0) {
         perror("Error al convertir la dirección IP");
         exit(EXIT_FAILURE);
     }
@@ -63,6 +63,7 @@ int main() {
     // Enviar mensajes al servidor
     while (1) {
         fgets(buffer, BUFFER_SIZE, stdin);
+	printf("{you}: %s", buffer);
         send(sock, buffer, strlen(buffer), 0);
 
         // Mostrar la opción de salir

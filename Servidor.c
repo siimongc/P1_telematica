@@ -7,7 +7,7 @@
 #include <arpa/inet.h>
 #include <signal.h>  // Para manejar señales
 
-#define PORT 8080
+#define PORT 8081
 #define MAX_CLIENTS 100
 #define BUFFER_SIZE 1024
 
@@ -66,22 +66,23 @@ void *handle_client(void *arg) {
     char buffer[BUFFER_SIZE];
     int bytes_received;
 
+
     while (1) {
         // Enviar lista de usuarios conectados
         send_user_list(client->socket);
 
         // Pedir al cliente que elija con quién chatear
-        send(client->socket, "Escribe el nombre de la persona con la que quieres hablar (o presiona 'x' para salir): ", 91, 0);
-        recv(client->socket, client->target_username, 50, 0);
+        send(client->socket, "\n Escribe el nombre de la persona con la que quieres hablar (presiona 'r' refrescar la lista de usuarios, 'x' para salir o 'q' para desconectarte del servidor): \n", 161, 0);
+	recv(client->socket, client->target_username, 50, 0);
         client->target_username[strcspn(client->target_username, "\n")] = '\0';  // Eliminar salto de línea
-
+    
         // Comando para salir del chat
-        if (strcmp(client->target_username, "x") == 0) {
-            continue;  // Volver a la lista de usuarios
-        }
-
-        // Validar si el nombre existe
-        if (!user_exists(client->target_username)) {
+        if (strcmp(client->target_username, "r") == 0) {
+	    continue;
+        } else if (strcmp(client->target_username, "q") == 0) {
+	    break;
+	    printf("Cliente desconectado: %s\n", client->username);
+        } else if (!user_exists(client->target_username)) {
             send(client->socket, "Ese usuario no existe. Inténtalo de nuevo.\n", 42, 0);
             continue;  // Volver a pedir el nombre
         }
@@ -91,9 +92,7 @@ void *handle_client(void *arg) {
             bytes_received = recv(client->socket, buffer, BUFFER_SIZE, 0);
 
             if (bytes_received <= 0) {  // El cliente se ha desconectado o hay un error
-                // Mostrar solo una vez que el cliente se ha desconectado
-                printf("Cliente desconectado: %s\n", client->username);
-                break;  // Salir del ciclo para cerrar el socket del cliente
+		break;  // Salir del ciclo para cerrar el socket del cliente
             }
 
             buffer[bytes_received] = '\0';
@@ -101,7 +100,7 @@ void *handle_client(void *arg) {
             // Comando para salir del chat actual
             if (strcmp(buffer, "x\n") == 0) {
                 send(client->socket, "Has salido del chat.\n", 22, 0);
-                break;  // Salir del chat y volver a la lista
+		break;  // Salir del chat y volver a la lista
             }
 
             // Formatear el mensaje con {usuario}: mensaje
@@ -113,7 +112,11 @@ void *handle_client(void *arg) {
         }
 
         // Si se sale del ciclo, terminamos con el cliente
-        break;
+	if (bytes_received <= 0) {  // El cliente se ha desconectado o hay un error
+            // Mostrar solo una vez que el cliente se ha desconectado
+            printf("Cliente desconectado: %s\n", client->username);
+            break;  // Salir del ciclo para cerrar el socket del cliente
+        }
     }
 
     // Desconectar al cliente
