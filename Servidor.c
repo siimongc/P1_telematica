@@ -87,6 +87,17 @@ void *handle_client(void *arg) {
             continue;  // Volver a pedir el nombre
         }
 
+
+	// Mensaje de conexión establecida
+        char connection_message[BUFFER_SIZE];
+        snprintf(connection_message, BUFFER_SIZE, "Se ha iniciado un chat con '%s'.\n",client->target_username);
+	char connection_message_client[BUFFER_SIZE];
+	snprintf(connection_message_client, BUFFER_SIZE, "'%s' ha iniciado un chat contigo.\nSi quieres responder en el chat copia '%s' (si el chat no está iniciado).",client->username, client->username);
+        
+        // Enviar el mensaje de conexión a ambos usuarios
+        send(client->socket, connection_message, strlen(connection_message), 0);
+        send_message_to_client(connection_message_client, client->target_username);
+
         // Iniciar el chat
         while (1) {
             bytes_received = recv(client->socket, buffer, BUFFER_SIZE, 0);
@@ -102,6 +113,8 @@ void *handle_client(void *arg) {
                 send(client->socket, "Has salido del chat.\n", 22, 0);
 		break;  // Salir del chat y volver a la lista
             }
+	    
+	    
 
             // Formatear el mensaje con {usuario}: mensaje
             char formatted_message[BUFFER_SIZE];
