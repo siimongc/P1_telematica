@@ -23,7 +23,7 @@ pthread_mutex_t clients_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 // Enviar lista de usuarios conectados a un cliente
 void send_user_list(int client_socket) {
-    char message[BUFFER_SIZE] = "Usuarios conectados:\n";
+    char message[BUFFER_SIZE] = "\nUsuarios conectados:\n";
 
     pthread_mutex_lock(&clients_mutex);
     for (int i = 0; i < client_count; ++i) {
@@ -72,7 +72,7 @@ void *handle_client(void *arg) {
         send_user_list(client->socket);
 
         // Pedir al cliente que elija con quién chatear
-        send(client->socket, "\n Escribe el nombre de la persona con la que quieres hablar (presiona 'r' refrescar la lista de usuarios, 'x' para salir o 'q' para desconectarte del servidor): \n", 161, 0);
+        send(client->socket, "\nEscribe el nombre de la persona con la que quieres hablar (presiona 'r' refrescar la lista de usuarios, 'x' para salir o 'q' para desconectarte del servidor): \n", 161, 0);
 	recv(client->socket, client->target_username, 50, 0);
         client->target_username[strcspn(client->target_username, "\n")] = '\0';  // Eliminar salto de línea
     
@@ -80,17 +80,17 @@ void *handle_client(void *arg) {
         if (strcmp(client->target_username, "r") == 0) {
 	    continue;
         } else if (strcmp(client->target_username, "q") == 0) {
-	    break;
 	    printf("Cliente desconectado: %s\n", client->username);
+	    send(client->socket, "Te has desconectado del servidor.\n", 36, 0);
+	    break;
         } else if (!user_exists(client->target_username)) {
             send(client->socket, "Ese usuario no existe. Inténtalo de nuevo.\n", 42, 0);
             continue;  // Volver a pedir el nombre
         }
 
-
 	// Mensaje de conexión establecida
         char connection_message[BUFFER_SIZE];
-        snprintf(connection_message, BUFFER_SIZE, "Se ha iniciado un chat con '%s'.\n",client->target_username);
+        snprintf(connection_message, BUFFER_SIZE, "\nSe ha iniciado un chat con '%s'.\n",client->target_username);
 	char connection_message_client[BUFFER_SIZE];
 	snprintf(connection_message_client, BUFFER_SIZE, "'%s' ha iniciado un chat contigo.\nSi quieres responder en el chat copia '%s' (si el chat no está iniciado).",client->username, client->username);
         
@@ -113,9 +113,8 @@ void *handle_client(void *arg) {
                 send(client->socket, "Has salido del chat.\n", 22, 0);
 		break;  // Salir del chat y volver a la lista
             }
-	    
-	    
 
+	    
             // Formatear el mensaje con {usuario}: mensaje
             char formatted_message[BUFFER_SIZE];
             snprintf(formatted_message, BUFFER_SIZE, "{%s}: %s", client->username, buffer);
